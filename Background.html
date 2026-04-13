@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Search Hub</title>
+
+<style>
+    body {
+        margin: 0;
+        overflow: hidden;
+        background: black;
+        font-family: Arial, sans-serif;
+        color: white;
+    }
+
+    canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+    }
+
+    .center {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        z-index: 2;
+    }
+
+    input {
+        width: 400px;
+        padding: 15px;
+        border-radius: 30px;
+        border: none;
+        outline: none;
+        font-size: 16px;
+        text-align: center;
+    }
+
+    button {
+        margin-top: 15px;
+        padding: 10px 20px;
+        border-radius: 20px;
+        border: none;
+        cursor: pointer;
+        background: white;
+        color: black;
+        font-weight: bold;
+    }
+
+    button:hover {
+        background: #ddd;
+    }
+</style>
+</head>
+<body>
+
+<canvas id="bg"></canvas>
+
+<div class="center">
+    <h1>Search</h1>
+
+    <form action="/search">
+        <input name="q" placeholder="Type something...">
+        <br>
+        <button type="submit">Go</button>
+    </form>
+</div>
+
+<script>
+const canvas = document.getElementById("bg");
+const ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let particles = [];
+
+for (let i = 0; i < 80; i++) {
+    particles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        r: Math.random() * 3 + 1,
+        dx: (Math.random() - 0.5) * 1,
+        dy: (Math.random() - 0.5) * 1
+    });
+}
+
+function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    for (let p of particles) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = "white";
+        ctx.fill();
+
+        p.x += p.dx;
+        p.y += p.dy;
+
+        if (p.x < 0 || p.x > canvas.width) p.dx *= -1;
+        if (p.y < 0 || p.y > canvas.height) p.dy *= -1;
+    }
+
+    requestAnimationFrame(animate);
+}
+
+animate();
+
+window.addEventListener("resize", () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+});
+</script>
+
+</body>
+</html>
