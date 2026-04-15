@@ -41,51 +41,50 @@ app.use("/proxy", async (req, res, next) => {
             "^/proxy": "",
         },
         selfHandleResponse: true, // Important: we'll handle the response ourselves
-        onProxyRes: function(proxyRes, req, res) {
-            let body = [];
-            proxyRes.on('data', function(chunk) {
-                body.push(chunk);
+       onProxyRes: function (proxyRes, req, res) {
+    let body = [];
+
+    proxyRes.on("data", function (chunk) {
+        body.push(chunk);
+    });
+
+    proxyRes.on("end", function () {
+        const buffer = Buffer.concat(body);
+        const contentType = proxyRes.headers["content-type"] || "";
+
+        // ✅ If NOT HTML → send raw buffer (fixes weird symbols)
+        if (!contentType.includes("text/html")) {
+            res.writeHead(proxyRes.statusCode, proxyRes.headers);
+            return res.end(buffer);
+        }
+
+        // ✅ Only HTML gets converted to string
+        let bodyStr = buffer.toString();
+
+        try {
+            const $ = cheerio.load(bodyStr);
+            const targetDomain = new URL(target).hostname;
+
+            $("a").each(function () {
+                const href = $(this).attr("href");
+                if (href && !href.startsWith("#") && !href.startsWith("javascript:")) {
+                    const absoluteUrl = new URL(href, target).href;
+                    const urlObj = new URL(absoluteUrl);
+
+                    if (urlObj.hostname === targetDomain) {
+                        $(this).attr("href", `/proxy?url=${encodeURIComponent(absoluteUrl)}`);
+                    }
+                }
             });
-            proxyRes.on('end', function() {
-                body = Buffer.concat(body).toString();
-                
-                // Parse HTML and modify links if it's HTML content
-                if (proxyRes.headers['content-type'] && proxyRes.headers['content-type'].includes('text/html')) {
-                    try {
-                        const $ = cheerio.load(body);
-                        const targetDomain = new URL(target).hostname;
-                        
-                        // Rewrite all links to stay within our proxy
-                        $('a').each(function() {
-                            const href = $(this).attr('href');
-                            if (href && !href.startsWith('#') && !href.startsWith('javascript:')) {
-                                // Convert relative URLs to absolute
-                                const absoluteUrl = new URL(href, target).href;
-                                // Extract the hostname to check if it's the same domain
-                                const urlObj = new URL(absoluteUrl);
-                                
-                                // If it's the same domain, keep it in our proxy
-                                if (urlObj.hostname === targetDomain) {
-                                    $(this).attr('href', `/proxy?url=${encodeURIComponent(absoluteUrl)}`);
-                                } else {
-                                    // For external links, keep them as is or handle differently
-                                    // For now, we'll keep them as is
-                                }
-                            }
-                        });
-                        
-                        // Rewrite form actions
-                        $('form').each(function() {
-                            const action = $(this).attr('action');
-                            if (action) {
-                                const absoluteUrl = new URL(action, target).href;
-                                const urlObj = new URL(absoluteUrl);
-                                
-                                if (urlObj.hostname === targetDomain) {
-                                    $(this).attr('action', `/proxy?url=${encodeURIComponent(absoluteUrl)}`);
-                                }
-                            }
-                        });
+
+            bodyStr = $.html();
+        } catch (e) {
+            console.error("HTML parse error:", e);
+        }
+
+        res.send(bodyStr);
+    });
+}
                         
                         // Rewrite CSS, JS, image sources
                         $('link, script, img').each(function() {
