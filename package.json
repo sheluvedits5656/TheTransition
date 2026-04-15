@@ -1,17 +1,14 @@
 {
   "name": "proxy-site",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "A proxy service for Vercel",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
-    "express": "^5.2.1",
-    "http-proxy-middleware": "^3.0.5"
+    "express": "^1^.18.2",
+    "http-proxy-middleware": "^2^.0.6",
+    "cheerio": "^3^.0.0-rc.12"
   }
 }
