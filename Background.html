@@ -1,118 +1,64 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<title>Search Hub</title>
+<title>Qwertxy</title>
 
 <style>
-    body {
-        margin: 0;
-        overflow: hidden;
-        background: black;
-        font-family: Arial, sans-serif;
-        color: white;
-    }
+body {
+    margin: 0;
+    height: 100vh;
+    background: radial-gradient(circle at center, #1a1a1a, #000);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: Arial, sans-serif;
+}
 
-    canvas {
-        position: absolute;
-        top: 0;
-        left: 0;
-    }
+/* container */
+.browser-box {
+    text-align: center;
+}
 
-    .center {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        text-align: center;
-        z-index: 2;
-    }
+/* input */
+input {
+    width: 400px;
+    padding: 14px;
+    border-radius: 30px;
+    border: none;
+    outline: none;
+    font-size: 16px;
+    background: #111;
+    color: white;
+    box-shadow: 0 0 10px rgba(0, 255, 200, 0.2);
+}
 
-    input {
-        width: 400px;
-        padding: 15px;
-        border-radius: 30px;
-        border: none;
-        outline: none;
-        font-size: 16px;
-        text-align: center;
-    }
+/* button */
+button {
+    margin-left: 10px;
+    padding: 14px 20px;
+    border-radius: 30px;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    color: white;
+    background: linear-gradient(45deg, #00ffcc, #0066ff);
+    transition: 0.2s;
+}
 
-    button {
-        margin-top: 15px;
-        padding: 10px 20px;
-        border-radius: 20px;
-        border: none;
-        cursor: pointer;
-        background: white;
-        color: black;
-        font-weight: bold;
-    }
-
-    button:hover {
-        background: #ddd;
-    }
+/* hover effect */
+button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 15px rgba(0, 255, 200, 0.6);
+}
 </style>
 </head>
+
 <body>
 
-<canvas id="bg"></canvas>
-
-<div class="center">
-    <h1>Search</h1>
-
-    <form action="/search">
-        <input name="q" placeholder="Type something...">
-        <br>
-        <button type="submit">Go</button>
-    </form>
+<div class="browser-box">
+    <input type="text" placeholder="Search or enter URL...">
+    <button>Go</button>
 </div>
-
-<script>
-const canvas = document.getElementById("bg");
-const ctx = canvas.getContext("2d");
-
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
-
-let particles = [];
-
-for (let i = 0; i < 80; i++) {
-    particles.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        r: Math.random() * 3 + 1,
-        dx: (Math.random() - 0.5) * 1,
-        dy: (Math.random() - 0.5) * 1
-    });
-}
-
-function animate() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    for (let p of particles) {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = "white";
-        ctx.fill();
-
-        p.x += p.dx;
-        p.y += p.dy;
-
-        if (p.x < 0 || p.x > canvas.width) p.dx *= -1;
-        if (p.y < 0 || p.y > canvas.height) p.dy *= -1;
-    }
-
-    requestAnimationFrame(animate);
-}
-
-animate();
-
-window.addEventListener("resize", () => {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-});
-</script>
 
 </body>
 </html>
