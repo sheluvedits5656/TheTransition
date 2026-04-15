@@ -1,21 +1,49 @@
 const express = require("express");
 const { createProxyMiddleware } = require("http-proxy-middleware");
 const cheerio = require("cheerio");
-const URL = require("url");
 
 const app = express();
 
-// basic homepage
+// homepage
 app.get("/", (req, res) => {
     res.send(`
+        <style>
+            body {
+                background: #0a0a0a;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                margin: 0;
+                font-family: Arial;
+            }
+            input {
+                padding: 12px;
+                width: 300px;
+                border-radius: 25px;
+                border: none;
+                outline: none;
+                background: #111;
+                color: white;
+            }
+            button {
+                padding: 12px 20px;
+                border-radius: 25px;
+                border: none;
+                background: linear-gradient(45deg,#00ffc8,#007bff);
+                color: white;
+                cursor: pointer;
+            }
+        </style>
+
         <form method="GET" action="/proxy">
-            <input name="url" placeholder="example.com" />
-            <button type="submit">Go</button>
+            <input name="url" placeholder="Enter URL..." />
+            <button>Go</button>
         </form>
     `);
 });
 
-// function to ensure URL has protocol
+// fix URL
 function ensureProtocol(url) {
     if (!url) return "";
     if (!url.startsWith("http://") && !url.startsWith("https://")) {
@@ -24,102 +52,97 @@ function ensureProtocol(url) {
     return url;
 }
 
-// proxy route with HTML rewriting
-app.use("/proxy", async (req, res, next) => {
+// proxy
+app.use("/proxy", (req, res, next) => {
     let target = req.query.url;
-    
     if (!target) return res.send("No URL provided");
-    
-    // Add protocol if missing
+
     target = ensureProtocol(target);
-    
-    // Create a custom proxy middleware that will intercept and modify the response
+
     const proxy = createProxyMiddleware({
-        target: target,
+        target,
         changeOrigin: true,
+        followRedirects: true,
+
         pathRewrite: {
-            "^/proxy": "",
+            "^/proxy": ""
         },
-        selfHandleResponse: true, // Important: we'll handle the response ourselves
-       onProxyRes: function (proxyRes, req, res) {
-    let body = [];
 
-    proxyRes.on("data", function (chunk) {
-        body.push(chunk);
-    });
+        selfHandleResponse: true,
 
-    proxyRes.on("end", function () {
-        const buffer = Buffer.concat(body);
-        const contentType = proxyRes.headers["content-type"] || "";
+        // 🔥 FIX compression issues
+        onProxyReq: (proxyReq) => {
+            proxyReq.setHeader("accept-encoding", "identity");
+        },
 
-        // ✅ If NOT HTML → send raw buffer (fixes weird symbols)
-        if (!contentType.includes("text/html")) {
-            res.writeHead(proxyRes.statusCode, proxyRes.headers);
-            return res.end(buffer);
-        }
+        onProxyRes: (proxyRes, req, res) => {
+            let body = [];
 
-        // ✅ Only HTML gets converted to string
-        let bodyStr = buffer.toString();
+            proxyRes.on("data", chunk => body.push(chunk));
 
-        try {
-            const $ = cheerio.load(bodyStr);
-            const targetDomain = new URL(target).hostname;
+            proxyRes.on("end", () => {
+                const buffer = Buffer.concat(body);
+                const contentType = proxyRes.headers["content-type"] || "";
 
-            $("a").each(function () {
-                const href = $(this).attr("href");
-                if (href && !href.startsWith("#") && !href.startsWith("javascript:")) {
-                    const absoluteUrl = new URL(href, target).href;
-                    const urlObj = new URL(absoluteUrl);
-
-                    if (urlObj.hostname === targetDomain) {
-                        $(this).attr("href", `/proxy?url=${encodeURIComponent(absoluteUrl)}`);
-                    }
+                // ✅ send binary files untouched
+                if (!contentType.includes("text/html")) {
+                    res.writeHead(proxyRes.statusCode, proxyRes.headers);
+                    return res.end(buffer);
                 }
-            });
 
-            bodyStr = $.html();
-        } catch (e) {
-            console.error("HTML parse error:", e);
-        }
+                let html = buffer.toString();
 
-        res.send(bodyStr);
-    });
-}
-                        
-                        // Rewrite CSS, JS, image sources
-                        $('link, script, img').each(function() {
-                            const src = $(this).attr('href') || $(this).attr('src');
-                            if (src) {
-                                const absoluteUrl = new URL(src, target).href;
-                                const urlObj = new URL(absoluteUrl);
-                                
-                                if (urlObj.hostname === targetDomain) {
-                                    if ($(this).is('link, script')) {
-                                        $(this).attr('href', absoluteUrl);
-                                        $(this).attr('src', absoluteUrl);
-                                    } else {
-                                        $(this).attr('src', absoluteUrl);
-                                    }
-                                }
-                            }
-                        });
-                        
-                        body = $.html();
-                    } catch (e) {
-                        console.error('Error parsing HTML:', e);
-                        // If parsing fails, just return the original body
-                    }
+                try {
+                    const $ = cheerio.load(html);
+                    const base = new URL(target);
+
+                    // 🔗 rewrite links
+                    $("a").each(function () {
+                        const href = $(this).attr("href");
+                        if (!href || href.startsWith("#") || href.startsWith("javascript:")) return;
+
+                        const absolute = new URL(href, base).href;
+                        $(this).attr("href", `/proxy?url=${encodeURIComponent(absolute)}`);
+                    });
+
+                    // 🧾 forms
+                    $("form").each(function () {
+                        const action = $(this).attr("action");
+                        if (!action) return;
+
+                        const absolute = new URL(action, base).href;
+                        $(this).attr("action", `/proxy?url=${encodeURIComponent(absolute)}`);
+                    });
+
+                    // 🖼 assets (css, js, img)
+                    $("[src], [href]").each(function () {
+                        const attr = $(this).attr("src") ? "src" : "href";
+                        const val = $(this).attr(attr);
+
+                        if (!val || val.startsWith("data:")) return;
+
+                        try {
+                            const absolute = new URL(val, base).href;
+                            $(this).attr(attr, absolute);
+                        } catch {}
+                    });
+
+                    // 🔥 inject base tag (helps fix relative paths)
+                    $("head").prepend(`<base href="${base.href}">`);
+
+                    html = $.html();
+                } catch (err) {
+                    console.log("Parse error:", err);
                 }
-                
-                // Send the modified response
-                res.send(body);
+
+                res.send(html);
             });
         }
     });
-    
+
     proxy(req, res, next);
 });
 
 app.listen(3000, () => {
-    console.log("Proxy running on http://localhost:3000");
+    console.log("✅ Proxy running: http://localhost:3000");
 });
